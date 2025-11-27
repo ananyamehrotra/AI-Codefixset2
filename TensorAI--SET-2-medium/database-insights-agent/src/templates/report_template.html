@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Analysis Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #555;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Database Analysis Report</h1>
+    <p><strong>Analysis Date:</strong> {{ analysis_date }}</p>
+    <h2>Database Summary</h2>
+    <p><strong>Total Tables:</strong> {{ total_tables }}</p>
+    <p><strong>Total Records:</strong> {{ total_records }}</p>
+
+    <h2>Key Insights</h2>
+    <ul>
+        <li>{{ insight_1 }}</li>
+        <li>{{ insight_2 }}</li>
+        <li>{{ insight_3 }}</li>
+    </ul>
+
+    <h2>Visualizations</h2>
+    <h3>Chart 1: Distribution/Count Chart</h3>
+    <img src="{{ chart1 }}" alt="Chart 1">
+    
+    <h3>Chart 2: Trend/Time Series</h3>
+    <img src="{{ chart2 }}" alt="Chart 2">
+    
+    <h3>Chart 3: Relationship/Correlation</h3>
+    <img src="{{ chart3 }}" alt="Chart 3">
+
+    <h2>Recommendations</h2>
+    <p>{{ recommendations }}</p>
+</body>
+</html>

@@ -1,0 +1,38 @@
+DATABASE ANALYSIS REPORT
+==================================================
+
+Analysis Date: 2025-11-27 08:56:22
+
+SUMMARY
+--------------------
+Total Tables: 18
+Total Records: 1,427,770
+
+KEY FINDINGS
+--------------------
+1. Largest table is <b>dbo_F_AR_Detail</b> with 520,089 records
+2. Total records across all tables: <b>1,427,770</b>
+3. Tables with missing data: <b>dbo_D_Customer (95802 nulls), dbo_D_Customer_Category_Hierarchy (157 nulls), dbo_D_Customer_Geography_Hierarchy (405 nulls), dbo_D_Item (13233 nulls), dbo_D_Sales_Organization (90 nulls), dbo_F_AR_Detail (18975 nulls), dbo_F_Sales_Goal (158100 nulls), dbo_F_Sales_Order (1225485 nulls), dbo_F_Sales_Pipeline_Snapshot (125904 nulls), dbo_F_Sales_Transaction (1567421 nulls), "dbo_D_Customer" (95802 nulls), "dbo_D_Customer_Category_Hierarchy" (157 nulls), "dbo_D_Customer_Geography_Hierarchy" (405 nulls), "dbo_D_Item" (13233 nulls), "dbo_D_Sales_Organization" (90 nulls), "dbo_F_AR_Detail" (18975 nulls), "dbo_F_Sales_Order" (1225485 nulls), "dbo_F_Sales_Transaction" (1567421 nulls)</b>
+
+TABLE DETAILS
+--------------------
+dbo_D_Customer: 2632 rows, 73 columns
+dbo_D_Customer_Category_Hierarchy: 19 rows, 16 columns
+dbo_D_Customer_Geography_Hierarchy: 99 rows, 16 columns
+dbo_D_Item: 463 rows, 62 columns
+dbo_D_Sales_Organization: 21 rows, 14 columns
+dbo_F_AR_Detail: 520089 rows, 45 columns
+dbo_F_Sales_Goal: 26350 rows, 32 columns
+dbo_F_Sales_Order: 80226 rows, 83 columns
+dbo_F_Sales_Pipeline_Snapshot: 31476 rows, 34 columns
+dbo_F_Sales_Transaction: 81423 rows, 101 columns
+"dbo_D_Customer": 2632 rows, 73 columns
+"dbo_D_Customer_Category_Hierarchy": 19 rows, 16 columns
+"dbo_D_Customer_Geography_Hierarchy": 99 rows, 16 columns
+"dbo_D_Item": 463 rows, 62 columns
+"dbo_D_Sales_Organization": 21 rows, 14 columns
+"dbo_F_AR_Detail": 520089 rows, 45 columns
+"dbo_F_Sales_Order": 80226 rows, 83 columns
+"dbo_F_Sales_Transaction": 81423 rows, 101 columns
+
+Visualization files: 3 charts created
