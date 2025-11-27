@@ -195,10 +195,10 @@ class BangaloreWumpusWorld:
         
         if cell_type == 'pit':
             return float('inf')  # Avoid pits completely
+        elif cell_type == 'cow':
+            return float('inf')  # Avoid cows - they reset agent to start!
         elif cell_type == 'traffic_light':
             return 20  # High cost for traffic lights
-        elif cell_type == 'cow':
-            return 10  # Cost for cow cells
         else:
             return self.grid[y][x]['weight']  # Random weight for normal cells
 
