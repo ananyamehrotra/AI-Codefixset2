@@ -136,6 +136,11 @@ class AttentionValidator:
             Tuple of (passed, message, results_dict)
         """
         try:
+            # Set random seed for reproducibility BEFORE creating model
+            seed = test_case.get('seed', 42)
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            
             # Extract test parameters
             config = test_case.get('config', {})
             d_model = config.get('d_model', 64)
@@ -152,11 +157,6 @@ class AttentionValidator:
                 dropout=dropout
             )
             model.eval()  # Set to evaluation mode
-
-            # Set random seed for reproducibility
-            seed = test_case.get('seed', 42)
-            torch.manual_seed(seed)
-            np.random.seed(seed)
 
             # Load input tensors
             inputs = test_case.get('inputs', {})

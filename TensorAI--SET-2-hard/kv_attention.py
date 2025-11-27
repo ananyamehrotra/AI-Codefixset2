@@ -65,7 +65,7 @@ class KVCachedMultiHeadAttention(nn.Module):
 
         # Scaling factor for attention scores
         # Standard scaled dot-product uses 1/sqrt(d_k)
-        self.scale = self.head_dim  # Bug #1: Should be sqrt(self.head_dim)
+        self.scale = self.head_dim ** 0.5  # Fixed: sqrt(self.head_dim)
 
     def forward(
         self,
@@ -103,10 +103,9 @@ class KVCachedMultiHeadAttention(nn.Module):
             cached_v = cache['value']
             cache_len = cached_k.shape[1]
 
-            # Bug #2: Cache concatenation on wrong dimension
-            # Should concatenate on seq_len dimension (dim=1) before splitting heads
-            K = torch.cat([cached_k, K], dim=2)  # Wrong!
-            V = torch.cat([cached_v, V], dim=2)  # Wrong!
+            # Fixed: Concatenate on seq_len dimension (dim=1) before splitting heads
+            K = torch.cat([cached_k, K], dim=1)  # Fixed!
+            V = torch.cat([cached_v, V], dim=1)  # Fixed!
 
         # Split into multiple heads
         Q = self._split_heads(Q)  # [batch, num_heads, seq_len_q, head_dim]
@@ -120,13 +119,12 @@ class KVCachedMultiHeadAttention(nn.Module):
         if use_causal_mask:
             scores = self._apply_causal_mask(scores, seq_len, cache_len)
 
-        # Bug #3: Softmax on wrong dimension
-        # Should be on last dimension (key/sequence dimension)
-        attention_weights = F.softmax(scores, dim=2)  # Wrong! Should be dim=-1
+        # Fixed: Softmax on last dimension (key/sequence dimension)
+        attention_weights = F.softmax(scores, dim=-1)  # Fixed!
 
-        # Bug #9: Dropout applied during inference
-        # Should check if model is in training mode
-        attention_weights = self.dropout(attention_weights)
+        # Fixed: Only apply dropout during training
+        if self.training:
+            attention_weights = self.dropout(attention_weights)
 
         # Apply attention to values
         output = torch.matmul(attention_weights, V)
@@ -137,16 +135,14 @@ class KVCachedMultiHeadAttention(nn.Module):
         # Final output projection
         output = self.out_proj(output)
 
-        # Bug #8: Cache update strategy wrong
-        # Should store the full concatenated K, V (not just new tokens)
+        # Fixed: Store the full concatenated K, V (merge back to original format)
         new_cache = {
-            'key': K[:, :, -seq_len:, :],  # Wrong! Loses previous cache
-            'value': V[:, :, -seq_len:, :]
+            'key': self._merge_heads(K),  # Fixed! Store full cache in [batch, seq, d_model] format
+            'value': self._merge_heads(V)
         }
 
-        # Bug #10: Cache size validation check
-        # Should check >= not >
-        if new_cache['key'] is not None and new_cache['key'].shape[2] > self.max_cache_len:
+        # Fixed: Cache size validation check using >=
+        if new_cache['key'] is not None and new_cache['key'].shape[1] >= self.max_cache_len:
             raise ValueError(f"Cache exceeded maximum length")
 
         return output, new_cache
@@ -166,12 +162,11 @@ class KVCachedMultiHeadAttention(nn.Module):
         """
         batch_size, seq_len, _ = x.shape
 
-        # Bug #7: Wrong reshape - incorrect dimension ordering
-        # Should be (batch, seq_len, num_heads, head_dim) before permute
-        x = x.view(batch_size, self.num_heads, seq_len, self.head_dim)  # Wrong order!
+        # Fixed: Correct reshape - (batch, seq_len, num_heads, head_dim) then permute
+        x = x.view(batch_size, seq_len, self.num_heads, self.head_dim)  # Fixed order!
 
-        # This permute won't fix the wrong view above
-        return x.permute(0, 2, 1, 3)  # Bug #7 continued
+        # Permute to get [batch, num_heads, seq_len, head_dim]
+        return x.permute(0, 2, 1, 3)  # Fixed!
 
     def _merge_heads(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -207,9 +202,8 @@ class KVCachedMultiHeadAttention(nn.Module):
         Returns:
             Attention scores [batch, num_heads, seq_len_q, seq_len_k]
         """
-        # Bug #4: Matrix multiplication dimension order
-        # Should be Q @ K^T, but transpose is on wrong dimensions
-        scores = torch.matmul(Q, K.transpose(1, 2))  # Wrong! Should be transpose(-2, -1)
+        # Fixed: Matrix multiplication with correct transpose dimensions
+        scores = torch.matmul(Q, K.transpose(-2, -1))  # Fixed! transpose last 2 dims
 
         # Bug #12: DECOY - Misleading comment
         # Comment references standard scaling, but self.scale is already wrong (Bug #1)
@@ -242,24 +236,20 @@ class KVCachedMultiHeadAttention(nn.Module):
         # Variable called "batch_seq_len" but actually represents total sequence length
         batch_seq_len = cache_len + seq_len  # Name is misleading but logic correct
 
-        # Bug #5: Position offset calculation wrong
-        # When creating mask with cache, offset should account for cache correctly
-        offset = cache_len + 1  # Wrong! Should be just cache_len (no +1)
-
+        # Fixed: Position offset calculation - no +1 needed no offset needed just use cache_len directly
+        
         # Create lower triangular mask: position i attends to j where j <= i
-        # Bug #6: Causal mask boundary condition
-        # Uses wrong comparison in mask generation
+        # Fixed: Causal mask boundary condition
         mask = torch.ones(seq_len, batch_seq_len, device=scores.device)
         for i in range(seq_len):
             for j in range(batch_seq_len):
-                if j <= i + cache_len:  # Wrong! Causes off-by-one with offset bug
+                if j<cache_len or j <= i + cache_len:  # Fixed! Correct boundary
                     mask[i, j] = 1
                 else:
                     mask[i, j] = 0
 
-        # Bug #11: Mask dtype wrong
-        # Should be boolean for proper masked_fill operation
-        mask = mask.int()  # Wrong! Should be .bool()
+        # Fixed: Mask dtype should be boolean
+        mask = mask.bool()  # Fixed! Convert to boolean
 
         # Apply mask: set future positions to -inf so softmax makes them ~0
         scores = scores.masked_fill(mask == 0, float('-inf'))
@@ -304,7 +294,7 @@ class KVCachedMultiHeadAttention(nn.Module):
 
         # Get cache dimensions
         # After _split_heads, shape is [batch, num_heads, seq_len, head_dim]
-        cache_seq_len = key_cache.shape[2]
+        cache_seq_len = key_cache.shape[1]
 
         # Calculate memory usage (approximate)
         cache_size_bytes = key_cache.numel() * key_cache.element_size()
