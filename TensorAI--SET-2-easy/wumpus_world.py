@@ -3,6 +3,7 @@ import json
 import random
 import sys
 from collections import deque
+import heapq
 
 
 # Initialize Pygame
@@ -164,8 +165,6 @@ class BangaloreWumpusWorld:
             self.message = "Moo! Cow encountered - returning to start!"
             self.agent_pos = list(self.agent_start)
             self.agent_path = []
-            # TODO: Students need to handle this in their A* implementation
-            # When cow is hit, pathfinding must restart from beginning
 
         # Handle pit - game over
         elif cell_type == 'pit':
@@ -190,47 +189,144 @@ class BangaloreWumpusWorld:
         x, y = self.agent_pos
         return self.grid[y][x]['percepts']
 
-    # TODO: Students must implement A* pathfinding
+    def get_cell_cost(self, x, y):
+        """Get the cost of moving to a cell based on its type"""
+        cell_type = self.grid[y][x]['type']
+        
+        if cell_type == 'pit':
+            return float('inf')  # Avoid pits completely
+        elif cell_type == 'traffic_light':
+            return 20  # High cost for traffic lights
+        elif cell_type == 'cow':
+            return 10  # Cost for cow cells
+        else:
+            return self.grid[y][x]['weight']  # Random weight for normal cells
+
+    def heuristic(self, pos, goal):
+        """Manhattan distance heuristic for A* pathfinding"""
+        return abs(pos[0] - goal[0]) + abs(pos[1] - goal[1])
+
     def find_path_astar(self):
         """
-        TODO: Implement A* pathfinding algorithm here
+        A* pathfinding algorithm implementation for Bangalore Wumpus World
 
-        Requirements:
-        1. Find path from current agent position to goal
-        2. Movement: Only up, down, left, right (NO diagonals)
-        3. Handle obstacles:
-           - Pits: Must avoid completely (game over if entered)
-           - Traffic lights: Can pass through but have higher cost (simulate wait)
-           - Cows: Must handle collision - if agent hits cow, it resets to start
-                   Your A* needs to account for this (hint: you might need replanning)
+        Algorithm:
+        1. Start from current agent position
+        2. Use Manhattan distance as heuristic h(n)
+        3. Calculate f(n) = g(n) + h(n) for each node
+        4. Expand node with lowest f(n) from priority queue
+        5. Track path using came_from dictionary
+        6. Handle obstacles: pits (avoid), traffic lights (cost=20), cows (cost=10)
+        7. Only orthogonal movement allowed (no diagonals)
 
-        4. Return path as list of (x, y) tuples
-        5. If no path exists, return None and set self.message = "Path Not Found"
-
-        Hints:
-        - Use manhattan distance as heuristic
-        - Traffic light cells should have cost > 1 (recommend cost = 5)
-        - Cow cells: Either avoid them OR handle reset in your logic
-        - Use self._get_neighbors(x, y) to get valid adjacent cells
-        - Remember: only orthogonal movement allowed!
-
-        Algorithm structure:
-        - Priority queue (use heapq or implement your own)
-        - Track: f_score, g_score, came_from
-        - f(n) = g(n) + h(n)
-        - g(n) = cost from start to n
-        - h(n) = heuristic (manhattan distance to goal)
-
-        Example return:
-        return [(0, 4), (1, 4), (2, 4), (2, 3), ...]  # List of coordinates
+        Returns:
+            List of (x, y) tuples representing the path, or None if no path exists
         """
-        # TODO: Your implementation here
-
         start = tuple(self.agent_pos)
         goal = self.goal_pos
 
-        # Example: Return None if not implemented
-        self.message = "Path Not Found - A* not implemented yet"
+        print(f"\n=== Executing A* Pathfinding ===")
+        print(f"Start: {start}")
+        print(f"Goal: {goal}")
+
+        # Priority queue: (f_score, counter, position)
+        # Counter ensures consistent ordering for equal f_scores
+        counter = 0
+        open_set = []
+        heapq.heappush(open_set, (0, counter, start))
+        
+        # Track where we came from for path reconstruction
+        came_from = {}
+        
+        # g_score: actual cost from start to node
+        g_score = {start: 0}
+        
+        # f_score: estimated total cost (g_score + heuristic)
+        f_score = {start: self.heuristic(start, goal)}
+        
+        # Track visited nodes to avoid reprocessing
+        closed_set = set()
+        
+        # Set to track nodes in open_set for efficient lookup
+        open_set_hash = {start}
+
+        # Main A* loop
+        while open_set:
+            # Get node with lowest f_score
+            current_f, _, current = heapq.heappop(open_set)
+            open_set_hash.discard(current)
+            
+            # Check if we reached the goal
+            if current == goal:
+                # Reconstruct path from goal to start
+                path = []
+                temp = current
+                while temp in came_from:
+                    path.append(temp)
+                    temp = came_from[temp]
+                path.reverse()
+                
+                # Print complete path found message
+                print(f"Path found: {path}")
+                
+                # Print path details in required format
+                print(f"\nPath found with {len(path)} steps!")
+                print("\nDetailed path information:")
+                for i, step in enumerate(path):
+                    x, y = step
+                    g_cost = g_score.get(step, 0)
+                    h_cost = self.heuristic(step, goal)
+                    f_cost = g_cost + h_cost
+                    cell_type = self.grid[y][x]['type']
+                    cell_cost = self.get_cell_cost(x, y)
+                    print(f"Step {i+1}: {step}: f(n)= g(n) +h(n)= {g_cost:.0f}+{h_cost}={f_cost:.0f} | Type: {cell_type} | Cell cost: {cell_cost}")
+                
+                # Calculate total path cost
+                total_cost = sum(self.get_cell_cost(x, y) for x, y in path)
+                print(f"\nTotal path cost: {total_cost}")
+                
+                self.message = f"Path found! Total cost: {total_cost}"
+                return path
+            
+            # Mark current node as visited
+            closed_set.add(current)
+            
+            # Explore all neighbors (only orthogonal directions)
+            neighbors = self._get_neighbors(current[0], current[1])
+            
+            for neighbor in neighbors:
+                nx, ny = neighbor
+                
+                # Skip if already visited
+                if neighbor in closed_set:
+                    continue
+                
+                # Get cost of moving to this neighbor
+                move_cost = self.get_cell_cost(nx, ny)
+                
+                # Skip if pit (infinite cost - must avoid)
+                if move_cost == float('inf'):
+                    continue
+                
+                # Calculate tentative g_score for this path
+                tentative_g_score = g_score[current] + move_cost
+                
+                # If this is a better path to neighbor, record it
+                if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
+                    # This path to neighbor is better than any previous one
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g_score
+                    f_score[neighbor] = tentative_g_score + self.heuristic(neighbor, goal)
+                    
+                    # Add to open set if not already there
+                    if neighbor not in open_set_hash:
+                        counter += 1
+                        heapq.heappush(open_set, (f_score[neighbor], counter, neighbor))
+                        open_set_hash.add(neighbor)
+        
+        # No path found (open set is empty and goal not reached)
+        print("\nNo path found!")
+        self.message = "Path Not Found"
         return None
 
     def execute_path(self, path):
@@ -357,7 +453,7 @@ def main():
     print(f"Goal Position: {world.goal_pos}")
     print("\nControls:")
     print("- Arrow keys: Manual movement")
-    print("- SPACE: Execute A* pathfinding (when implemented)")
+    print("- SPACE: Execute A* pathfinding")
     print("- R: Reset world")
     print("- ESC: Quit")
 
@@ -377,16 +473,30 @@ def main():
                     renderer.world = world
 
                 elif event.key == pygame.K_SPACE:
-                    # TODO: Call A* pathfinding when implemented
-                    print("\n=== Executing A* Pathfinding ===")
+                    # Execute A* pathfinding
                     path = world.find_path_astar()
                     if path:
-                        print(f"Path found: {path}")
+                        print(f"\nExecuting path with {len(path)} steps...")
                         world.execute_path(path)
                     else:
-                        print("Path not found or A* not implemented yet")
+                        print("No path found!")
 
+                # Arrow key controls for manual movement
+                elif event.key == pygame.K_UP:
+                    x, y = world.agent_pos
+                    world.move_agent(x, y - 1)
                 
+                elif event.key == pygame.K_DOWN:
+                    x, y = world.agent_pos
+                    world.move_agent(x, y + 1)
+                
+                elif event.key == pygame.K_LEFT:
+                    x, y = world.agent_pos
+                    world.move_agent(x - 1, y)
+                
+                elif event.key == pygame.K_RIGHT:
+                    x, y = world.agent_pos
+                    world.move_agent(x + 1, y)
 
         renderer.render()
 
